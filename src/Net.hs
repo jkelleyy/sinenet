@@ -74,11 +74,13 @@ runAndDiffLayer Layer{layerWeights=weights,layerActivation=act} input =
       (nR,nC) = size weights
       limit = (nR-1,nC-1)
 
+      deriveArrayValue r c = (dact $ atIndex linearValues r)*(atIndex input c)
+
       derivArray =
         listArray ((0,0),limit) $
-        (\(r,c) -> createSingle nR r (atIndex input c)) <$> range ((0,0),limit)
-      dactMatrix = (diag (cmap dact linearValues))
-  in (output,(dactMatrix #>) <$> derivArray,dactMatrix <> weights)
+        (\(r,c) -> createSingle nR r $ deriveArrayValue r c) <$> range ((0,0),limit)
+      dactMatrix = (diag  (cmap dact linearValues))
+  in (output,derivArray,dactMatrix <> weights)
 
 runAndDiffNet :: Net (Matrix Double) -> Vector Double -> (Vector Double,[Array (Int,Int) (Vector Double)])
 runAndDiffNet net input =
@@ -107,7 +109,8 @@ updateNet net grad c =
 tanhFunc :: DifferentiableFunction Double Double
 tanhFunc = DiffFunction f (\y c -> c*(let z = f y in 1-z^2))
   where
-    f x = (2/(1+(exp (-2*x))) - 1)
+    f :: Double -> Double
+    f = tanh
 
 --layerAsDiffFunc :: Layer (Matrix Double) -> DifferentiableFunction (Matrix Double,Vector Double) (Vector Double)
 

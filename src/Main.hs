@@ -37,17 +37,22 @@ iterateNet :: Int -> DoubleNet -> IO DoubleNet
 iterateNet 0 net = return net
 iterateNet steps net =
   do let n = 10
-     xs <- replicateM n $ randomRIO (0,10)
+     xs <- replicateM n $ randomRIO (0,20)
 
      --let x = 0.5
-     grads <- forM xs (\x -> do let (val,err,grad) = runAndDiffWithError net (vector [x]) (errFunc $ (sin x)/2)
-                                print (x,val,(sin x)/2,err)
-                                return grad)
-     let grad = foldl1 (zipWith (\a b -> (add (scale (1/fromIntegral n) b) a))) grads
-     let newNet = updateNet net grad (-0.005)
-     iterateNet (steps-1) newNet
+     let loop loopSteps currNet =
+           if loopSteps ==0 then
+             return currNet
+           else
+             do grads <- forM xs (\x -> do let (val,err,grad) = runAndDiffWithError currNet (vector [x]) (errFunc $ (sin x)/2)
+                                         --print (x,val,(sin x)/2,err)
+                                           return grad)
+                let grad = foldl1 (zipWith (\a b -> (add b a))) grads
+                let newNet = updateNet net grad (-0.0005)
+                loop (loopSteps - 1) newNet
+     loop 5 net >>= iterateNet (steps-1)
 
 main :: IO ()
 main = do randNet <- randomSimpleNet 1 1 100
-          finalNet <- iterateNet 100000 randNet
+          finalNet <- iterateNet 10000 randNet
           plotSome finalNet
