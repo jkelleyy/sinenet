@@ -6,7 +6,6 @@ import Prelude hiding (id,(.))
 import Numeric.LinearAlgebra hiding (range)
 import Data.Traversable
 import System.Random
-import qualified Data.Vector.Storable as V
 import Data.Array
 
 import Debug.Trace
@@ -56,7 +55,7 @@ type DoubleNet = Net (Matrix Double)
 
 runLayer :: Layer (Matrix Double) -> Vector Double -> Vector Double
 runLayer Layer{layerWeights=inputs,layerActivation=act} v =
-  V.map (dfRun act) $ inputs #> v
+  cmap (dfRun act) $ inputs #> v
 
 runNet :: Net (Matrix Double) -> Vector Double -> Vector Double
 runNet net input =
@@ -64,19 +63,22 @@ runNet net input =
   let realInput = vjoin [input,1.0]
   in foldl (flip runLayer) realInput (netContent net)
 
+createSingle :: Int -> Int -> Double -> Vector Double
+createSingle n i x = assoc n 0 [(i,x)]
 
 runAndDiffLayer :: Layer (Matrix Double) -> Vector Double -> (Vector Double,Array (Int,Int) (Vector Double),Matrix Double)
 runAndDiffLayer Layer{layerWeights=weights,layerActivation=act} input =
   let dact = simpleDiff act
       linearValues = weights #> input
-      output = V.map (dfRun act) linearValues
+      output = cmap (dfRun act) linearValues
       (nR,nC) = size weights
       limit = (nR-1,nC-1)
-      createSingle n i x = vector $ replicate i 0 ++ [x] ++ replicate (n-i-1) 0
+
       derivArray =
         listArray ((0,0),limit) $
         (\(r,c) -> createSingle nR r (atIndex input c)) <$> range ((0,0),limit)
-  in (output,derivArray,(diag (V.map dact linearValues)) <> weights)
+      dactMatrix = (diag (cmap dact linearValues))
+  in (output,(dactMatrix #>) <$> derivArray,dactMatrix <> weights)
 
 runAndDiffNet :: Net (Matrix Double) -> Vector Double -> (Vector Double,[Array (Int,Int) (Vector Double)])
 runAndDiffNet net input =
