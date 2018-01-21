@@ -43,7 +43,7 @@ iterateNet steps net =
      grads <- forM xs (\x -> do let (val,err,grad) = runAndDiffWithError net (vector [x]) (errFunc $ (sin x)/2)
                                 print (x,val,sin x,err)
                                 return grad)
-     let grad = foldl1 (zipWith (\a b -> (scale (1/fromIntegral n) $ add a b))) grads
+     let grad = foldl1 (zipWith (\a b -> (add (scale (1/fromIntegral n) b) a))) grads
      let newNet = updateNet net grad (-0.005)
      iterateNet (steps-1) newNet
 
